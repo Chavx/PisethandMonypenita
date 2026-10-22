@@ -10,7 +10,7 @@
 <!-- Facebook / Messenger / WhatsApp -->
     <meta property="og:title" content="អាពាហ៍ពិពាហ៍ 💍">
     <meta property="og:description" content="សូមគោរពអញ្ជើញលោកអ្នកចូលរួមក្នុងពិធីមង្គលការរបស់យើងខ្ញុំ ❤️">
-    <meta property="og:image" content="https://pisethandmonypenita.pages.dev/PisethandMonypenita.jpg">
+    <meta property="og:image" content="https://pisethandmonypenita.netlify.app/PisethandMonypenita.jpg">
     <meta property="og:url" content="https://pisethandmonypenita.pages.dev/">
     <meta property="og:type" content="website">
 
@@ -18,14 +18,46 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="អាពាហ៍ពិពាហ៍ 💍">
     <meta name="twitter:description" content="សូមគោរពអញ្ជើញលោកអ្នកចូលរួមក្នុងពិធីមង្គលការរបស់យើងខ្ញុំ ❤️">
-    <meta name="twitter:image" content="https://pisethandmonypenita.pages.dev/PisethandMonypenita.jpg">
+    <meta name="twitter:image" content="https://pisethandmonypenita.netlify.app/PisethandMonypenita.jpg">
 
-    <!-- កូដ JavaScript សម្រាប់ទាញយកឈ្មោះភ្ញៀវមកដូរ Meta ស្វ័យប្រវត្តិ -->
+    <!-- Decode compact guest name links (?g=...) and continue supporting old (?to=...) links -->
     <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        const guestName = urlParams.get('to');
+        window.decodeGuestNameShort = function(token) {
+            try {
+                const base64 = token.replace(/-/g, '+').replace(/_/g, '/');
+                const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+                const binary = atob(padded);
+                const bytes = Array.from(binary, ch => ch.charCodeAt(0));
+                let result = '';
+                for (let i = 0; i < bytes.length;) {
+                    const b = bytes[i];
+                    if (b === 0) {
+                        if (i + 4 >= bytes.length) return '';
+                        const cp = bytes[i + 1] * 0x1000000 + bytes[i + 2] * 0x10000 + bytes[i + 3] * 0x100 + bytes[i + 4];
+                        result += String.fromCodePoint(cp);
+                        i += 5;
+                    } else if (b < 0x80) {
+                        result += String.fromCharCode(b);
+                        i += 1;
+                    } else {
+                        result += String.fromCodePoint(0x1780 + b - 0x80);
+                        i += 1;
+                    }
+                }
+                return result;
+            } catch (error) {
+                return '';
+            }
+        };
 
-        if (guestName) {
+        (() => {
+            const params = new URLSearchParams(window.location.search);
+            const shortToken = params.get('g');
+            const guestName = shortToken
+                ? window.decodeGuestNameShort(shortToken)
+                : (params.get('to') || '');
+
+            if (guestName) {
             document.title = `អាពាហ៍ពិពាហ៍ 💍 - ${guestName}`;
             
             let ogTitle = document.querySelector('meta[property="og:title"]');
@@ -39,7 +71,8 @@
 
             let twDesc = document.querySelector('meta[name="twitter:description"]');
             if (twDesc) twDesc.setAttribute('content', `សូមគោរពអញ្ជើញ ${guestName} ចូលរួមក្នុងពិធីមង្គលការយើងខ្ញុំ ❤️`);
-        }
+            }
+        })();
     </script>
     
     <title>Digital Invitation - លិខិតអញ្ជើញ</title>
@@ -1526,7 +1559,7 @@
                     <div class="guest-label" data-i18n="p1_invite_label">សូមគោរពអញ្ជើញ</div>
                     <div class="guest-name-box">
                         <div class="guest-name-inner" id="guestName">
-                            ជូនចំពោះ ភ្ញៀវកិត្តិយស
+                            ភ្ញៀវកិត្តិយស
                         </div>
                     </div>
                 </div>
@@ -2105,42 +2138,17 @@ function downloadSpecificQR(fullImgId, filename) {
 
     <!-- JavaScript code functionality -->
     <script>
-        // បង្ហាញឈ្មោះភ្ញៀវពី URL ទាំងពីរប្រភេទ៖
-        // 1) ?to=លោក%20រតនា%20និង%20រតនា
-        // 2) ?i=ID ដែលបង្កើតដោយ admin_invitation_name_fixed.html និង Cloudflare Pages Functions/KV
-        (async function setGuestNameFromURL() {
+        // បង្ហាញឈ្មោះភ្ញៀវពី Link ខ្លី ?g=... ហើយនៅតែគាំទ្រ Link ចាស់ ?to=...
+        (function setGuestNameFromURL() {
             const params = new URLSearchParams(window.location.search);
-            const guestParam = params.get('to');
-            const invitationId = params.get('i');
+            const shortToken = params.get('g');
+            const guestParam = shortToken
+                ? window.decodeGuestNameShort(shortToken)
+                : (params.get('to') || '');
             const guestEl = document.getElementById('guestName');
-            if (!guestEl) return;
 
-            const genericLabel = 'ជូនចំពោះ ភ្ញៀវកិត្តិយស';
-            guestEl.textContent = genericLabel;
-
-            // Link ប្រភេទ ?to= យកឈ្មោះពី URL ដោយផ្ទាល់
-            if (guestParam && guestParam.trim()) {
+            if (guestEl && guestParam && guestParam.trim()) {
                 guestEl.textContent = `ជូនចំពោះ ${guestParam.trim()}`;
-                return;
-            }
-
-            // Link ខ្លីប្រភេទ ?i= ទាញឈ្មោះពី API/KV នៅលើ Domain ដូចគ្នា
-            if (invitationId) {
-                guestEl.textContent = 'កំពុងបើកកាតអញ្ជើញ...';
-                try {
-                    const response = await fetch(`/api/invitations/${encodeURIComponent(invitationId)}`, {
-                        method: 'GET',
-                        headers: { 'Accept': 'application/json' },
-                        cache: 'no-store'
-                    });
-                    if (!response.ok) throw new Error(`Invitation API returned ${response.status}`);
-                    const data = await response.json();
-                    const savedName = typeof data.name === 'string' ? data.name.trim() : '';
-                    guestEl.textContent = savedName ? `ជូនចំពោះ ${savedName}` : genericLabel;
-                } catch (error) {
-                    console.error('មិនអាចទាញឈ្មោះភ្ញៀវពី API បានទេ:', error);
-                    guestEl.textContent = genericLabel;
-                }
             }
         })();
 
